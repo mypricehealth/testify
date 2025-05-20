@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/google/go-cmp/cmp"
 	"github.com/pmezard/go-difflib/difflib"
 
 	// Wrapper around gopkg.in/yaml.v3
@@ -479,17 +480,14 @@ func Equal(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) 
 	if h, ok := t.(tHelper); ok {
 		h.Helper()
 	}
-	if err := validateEqualArgs(expected, actual); err != nil {
-		return Fail(t, fmt.Sprintf("Invalid operation: %#v == %#v (%s)",
-			expected, actual, err), msgAndArgs...)
-	}
 
-	if !ObjectsAreEqual(expected, actual) {
-		diff := diff(expected, actual)
-		expected, actual = formatUnequalValues(expected, actual)
-		return Fail(t, fmt.Sprintf("Not equal: \n"+
-			"expected: %s\n"+
-			"actual  : %s%s", expected, actual, diff), msgAndArgs...)
+	comparer := cmp.Exporter(func(t reflect.Type) bool {
+		return true
+	})
+
+	diff := cmp.Diff(expected, actual, comparer)
+	if diff != "" {
+		return Fail(t, fmt.Sprintf("Not equal:\n%s", diff), msgAndArgs...)
 	}
 
 	return true
@@ -865,12 +863,12 @@ func NotEqual(t TestingT, expected, actual interface{}, msgAndArgs ...interface{
 	if h, ok := t.(tHelper); ok {
 		h.Helper()
 	}
-	if err := validateEqualArgs(expected, actual); err != nil {
-		return Fail(t, fmt.Sprintf("Invalid operation: %#v != %#v (%s)",
-			expected, actual, err), msgAndArgs...)
-	}
 
-	if ObjectsAreEqual(expected, actual) {
+	comparer := cmp.Exporter(func(t reflect.Type) bool {
+		return true
+	})
+
+	if cmp.Equal(expected, actual, comparer) {
 		return Fail(t, fmt.Sprintf("Should not be: %#v\n", actual), msgAndArgs...)
 	}
 

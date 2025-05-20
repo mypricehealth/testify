@@ -2,7 +2,9 @@ module github.com/stretchr/testify
 
 // This should match the minimum supported version that is tested in
 // .github/workflows/main.yml
-go 1.17
+go 1.21
+
+toolchain go1.24.1
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -10,6 +12,8 @@ require (
 	github.com/stretchr/objx v0.5.2
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+require github.com/google/go-cmp v0.7.0 // indirect
 
 // Break dependency cycle with objx.
 // See https://github.com/stretchr/objx/pull/140
