@@ -481,17 +481,54 @@ func Equal(t TestingT, expected, actual interface{}, msgAndArgs ...interface{}) 
 		h.Helper()
 	}
 
-	comparer := cmp.Exporter(func(t reflect.Type) bool {
-		return true
-	})
-
-	diff := cmp.Diff(expected, actual, comparer)
+	diff := cmp.Diff(expected, actual, cmpOptions()...)
 	if diff != "" {
 		return Fail(t, fmt.Sprintf("Not equal:\n%s", diff), msgAndArgs...)
 	}
 
 	return true
+}
 
+func cmpOptions() []cmp.Option {
+	exporter := cmp.Exporter(func(t reflect.Type) bool {
+		return true
+	})
+
+	alwaysEqual := cmp.Comparer(func(_, _ interface{}) bool { return true })
+
+	compareArray := cmp.FilterValues(func(a, b interface{}) bool {
+		v1 := reflect.ValueOf(a)
+		v2 := reflect.ValueOf(b)
+
+		if !v1.IsValid() || !v2.IsValid() {
+			return false
+		}
+
+		// This special case is taken directly from `reflect.DeepEqual` because
+		// `cmp.Equal` will consider a `[]func(...) ...` to be inequal but
+		// `reflect.DeepEqual`, which `Equal` formerly used, would consider it
+		// to be equal as long as they have the same `unsafe.Pointer`.
+		if v1.Kind() == reflect.Slice && v2.Kind() == reflect.Slice {
+			if v1.IsNil() != v2.IsNil() {
+				return false
+			}
+
+			if v1.Len() != v2.Len() {
+				return false
+			}
+
+			if v1.UnsafePointer() == v2.UnsafePointer() {
+				return true
+			}
+		}
+
+		return false
+	}, alwaysEqual)
+
+	return []cmp.Option{
+		exporter,
+		compareArray,
+	}
 }
 
 // validateEqualArgs checks whether provided arguments can be safely used in the
@@ -864,11 +901,7 @@ func NotEqual(t TestingT, expected, actual interface{}, msgAndArgs ...interface{
 		h.Helper()
 	}
 
-	comparer := cmp.Exporter(func(t reflect.Type) bool {
-		return true
-	})
-
-	if cmp.Equal(expected, actual, comparer) {
+	if cmp.Equal(expected, actual, cmpOptions()...) {
 		return Fail(t, fmt.Sprintf("Should not be: %#v\n", actual), msgAndArgs...)
 	}
 
