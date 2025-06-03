@@ -504,11 +504,18 @@ func cmpOptions() []cmp.Option {
 			return false
 		}
 
+		if v1.Kind() != v2.Kind() {
+			return false
+		}
+
+		kind := v1.Kind()
+
 		// This special case is taken directly from `reflect.DeepEqual` because
 		// `cmp.Equal` will consider a `[]func(...) ...` to be inequal but
 		// `reflect.DeepEqual`, which `Equal` formerly used, would consider it
 		// to be equal as long as they have the same `unsafe.Pointer`.
-		if v1.Kind() == reflect.Slice && v2.Kind() == reflect.Slice {
+		switch kind {
+		case reflect.Slice, reflect.Map:
 			if v1.IsNil() != v2.IsNil() {
 				return false
 			}
@@ -517,6 +524,10 @@ func cmpOptions() []cmp.Option {
 				return false
 			}
 
+			if v1.UnsafePointer() == v2.UnsafePointer() {
+				return true
+			}
+		case reflect.Pointer:
 			if v1.UnsafePointer() == v2.UnsafePointer() {
 				return true
 			}
